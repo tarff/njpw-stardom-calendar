@@ -1,0 +1,52 @@
+name: Build calendar
+
+on:
+  schedule:
+    - cron: "0 20 * * *"   # daily 05:00 JST
+  workflow_dispatch: {}      # manual "Run workflow" button
+  push:
+    paths:
+      - "data/**"
+      - "scripts/**"
+      - ".github/workflows/build.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-calendar
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build ICS
+        run: python scripts/build_ics.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Ignore the DTSTAMP-only churn: only commit when real event lines changed.
+          if git diff --quiet -- docs/njpw-stardom.ics; then
+            echo "No change."
+            exit 0
+          fi
+          changed=$(git diff -U0 -- docs/njpw-stardom.ics \
+            | grep -E '^[+-]' | grep -vE '^[+-]{3}' \
+            | grep -vE '^[+-](DTSTAMP|X-WR-CALDESC)' | wc -l)
+          if [ "$changed" -eq 0 ]; then
+            echo "Only timestamp changed; skipping commit."
+            git checkout -- docs/njpw-stardom.ics
+            exit 0
+          fi
+          git add docs/njpw-stardom.ics
+          git commit -m "chore: rebuild calendar ($(date -u +%Y-%m-%d))"
+          git push

@@ -1,0 +1,25 @@
+{
+  "_comment": "World Wonder Ring Stardom announced shows. Stardom has no public API, so this is the maintained source of truth (best-effort). date=YYYY-MM-DD (JST). time=null means bell time not yet announced -> emitted as an all-day event. Update times/rows as Stardom announces them. Source: wwr-stardom.com/schedule + puwota bell times, gathered 2026-07-03.",
+  "shows": [
+    {"date": "2026-07-04", "time": "16:00", "name": "Stardom in Imabari-Ehime", "venue": "Texport Imabari, Ehime"},
+    {"date": "2026-07-05", "time": null,   "name": "Stardom in Osaka-Bay", "venue": "ATC Hall C, Osaka"},
+    {"date": "2026-07-08", "time": "18:30", "name": "Stardom Nighter in Korakuen", "venue": "Korakuen Hall, Tokyo"},
+    {"date": "2026-07-11", "time": "17:00", "name": "Stardom in Fuji", "venue": "Fujisan Messe, Fuji City, Shizuoka"},
+    {"date": "2026-07-18", "time": null,   "name": "Stardom 5STAR GP 2026 Opening", "venue": "Arena Ota (Ota Ward General Sports Center), Tokyo"},
+    {"date": "2026-07-19", "time": null,   "name": "Stardom 5STAR GP 2026 in Toyohashi", "venue": "Loisir Hotel Toyohashi (Holiday Hall)"},
+    {"date": "2026-07-20", "time": null,   "name": "Stardom 5STAR GP 2026 in Osaka", "venue": "Herbis Hall, Osaka"},
+    {"date": "2026-07-25", "time": null,   "name": "Stardom 5STAR GP 2026 in Kanazawa", "venue": "Ishikawa Industrial Exhibition Hall No. 2"},
+    {"date": "2026-07-26", "time": null,   "name": "Stardom 5STAR GP 2026 in Joetsu", "venue": "Duo Cerezo, Joetsu"},
+    {"date": "2026-07-28", "time": "18:30", "name": "Stardom 5STAR GP 2026 in Korakuen (Jul)", "venue": "Korakuen Hall, Tokyo"},
+    {"date": "2026-08-01", "time": null,   "name": "Stardom 5STAR GP 2026 in Sendai", "venue": "Sendai PIT, Sendai"},
+    {"date": "2026-08-02", "time": null,   "name": "Stardom 5STAR GP 2026 in Utsunomiya", "venue": "Light Cube Utsunomiya, Grand Hall"},
+    {"date": "2026-08-03", "time": null,   "name": "Stardom 5STAR GP 2026 in Korakuen (Aug 1)", "venue": "Korakuen Hall, Tokyo"},
+    {"date": "2026-08-08", "time": null,   "name": "Stardom 5STAR GP 2026 in Sapporo Day 1", "venue": "Chateraise Gateaux Kingdom Sapporo"},
+    {"date": "2026-08-09", "time": null,   "name": "Stardom 5STAR GP 2026 in Sapporo Day 2", "venue": "Chateraise Gateaux Kingdom Sapporo"},
+    {"date": "2026-08-14", "time": null,   "name": "Stardom 5STAR GP 2026 in Kobe", "venue": "Kobe Sambo Hall, 2F Large Exhibition Hall"},
+    {"date": "2026-08-15", "time": null,   "name": "Stardom 5STAR GP 2026 in Kyoto", "venue": "KBS Hall, Kyoto"},
+    {"date": "2026-08-16", "time": null,   "name": "Stardom 5STAR GP 2026 in Hamamatsu", "venue": "Act City Hamamatsu, Shizuoka"},
+    {"date": "2026-08-18", "time": null,   "name": "Stardom 5STAR GP 2026 in Korakuen (Aug 2)", "venue": "Korakuen Hall, Tokyo"},
+    {"date": "2026-08-23", "time": null,   "name": "Stardom 5STAR GP 2026 FINAL", "venue": "Ryogoku Kokugikan (Sumo Hall), Tokyo"}
+  ]
+}
