@@ -51,6 +51,33 @@ class BuildIcsTests(unittest.TestCase):
             self.assertNotEqual(0, cm.exception.code)
             self.assertFalse(self.builder.OUT.exists())
 
+    def test_main_refuses_to_write_when_required_njpw_api_payload_has_no_shows(self):
+        events = [
+            self.builder.Event(
+                uid=f"stardom-{i}@test",
+                summary="Stardom",
+                location="",
+                desc="",
+                date=date(2026, 1, 1),
+            )
+            for i in range(20)
+        ]
+
+        self.builder.fetch = lambda url, binary=False: __import__("json").dumps({
+            "twitter_hash_tags": "G1CLIMAX36",
+            "tournaments": [],
+        })
+        self.builder.njpw_from_gcal = lambda covered, spans: []
+        self.builder.stardom_events = lambda: events
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self.builder.OUT = Path(tmp) / "calendar.ics"
+            with self.assertRaises(SystemExit) as cm:
+                self.builder.main()
+
+            self.assertNotEqual(0, cm.exception.code)
+            self.assertFalse(self.builder.OUT.exists())
+
     def test_njpw_api_uids_use_per_show_post_ids_for_same_day_events(self):
         payload = {
             "twitter_hash_tags": "TEST",

@@ -125,8 +125,16 @@ def njpw_from_api():
             print(f"  ! NJPW series {sid} fetch failed: {e}", file=sys.stderr)
             failures.append((sid, str(e)))
             continue
+        if not isinstance(d, dict):
+            print(f"  ! NJPW series {sid} response was not a JSON object", file=sys.stderr)
+            failures.append((sid, "invalid response shape"))
+            continue
         name = pretty_series(d.get("twitter_hash_tags"), d.get("stadium_name"))
-        shows = d.get("tournaments") or []
+        shows = d.get("tournaments")
+        if not isinstance(shows, list) or not shows:
+            print(f"  ! NJPW series {sid} response had no tournament shows", file=sys.stderr)
+            failures.append((sid, "no tournament shows"))
+            continue
         span_days = []
         for idx, t in enumerate(shows, 1):
             ds = (t.get("event_start_date") or "")[:10]
