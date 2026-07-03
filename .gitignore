@@ -1,2 +1,7 @@
 _sample_*.ics
 _sample_*.json
+__pycache__/
+*.pyc
+
+__pycache__/
+*.pyc
