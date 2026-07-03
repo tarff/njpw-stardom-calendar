@@ -16,7 +16,7 @@ NJPW (reliable):
 Stardom (best-effort):
   * data/stardom.json (maintained by hand; Stardom has no public API). time=null -> all-day.
 
-Times are emitted in venue-local zones (Asia/Tokyo, or America/Chicago for US shows) with
+Times are emitted in venue-local zones (Asia/Tokyo, or venue-specific US timezones) with
 VTIMEZONE blocks, so subscribers' devices convert to their own timezone automatically.
 No bell time is ever invented: unknown Stardom times become all-day events.
 """
@@ -27,6 +27,7 @@ import sys
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -45,10 +46,33 @@ SERIES_NAMES = {
     "G1CLIMAX36": "G1 Climax 36",
 }
 
-# Prefecture -> IANA timezone for non-Japan shows. JP prefectures default to Asia/Tokyo.
-FOREIGN_TZ = {
-    "USA": "America/Chicago",  # only current US venue (NOW Arena) is in Illinois / Central
+# NJPW's API currently exposes US shows with prefecture="USA", so country alone is not
+# enough to choose the venue-local timezone. Unknown US venues fail the build rather than
+# publishing a calendar with the wrong local time.
+US_VENUE_TZ = {
+    "NOW Arena": "America/Chicago",
+    "Madison Square Garden": "America/New_York",
+    "Walter Pyramid": "America/Los_Angeles",
+    "Long Beach Convention": "America/Los_Angeles",
 }
+
+
+def njpw_timezone(pref, stadium):
+    if pref != "USA":
+        return "Asia/Tokyo"
+    stadium_key = stadium.casefold()
+    for venue, tz in US_VENUE_TZ.items():
+        if venue.casefold() in stadium_key:
+            return tz
+    return None
+
+
+def api_covered_dates(day, hm, tz):
+    dates = {day}
+    if hm and tz != "Asia/Tokyo":
+        local = datetime(day.year, day.month, day.day, hm[0], hm[1], tzinfo=ZoneInfo(tz))
+        dates.add(local.astimezone(JST).date())
+    return dates
 
 # Stardom scraper (best-effort): official WordPress site, monthly grid + per-show detail page.
 STARDOM_MONTH = "https://wwr-stardom.com/en/schedule/?ym={ym}"
@@ -127,9 +151,14 @@ def load_njpw_series_ids():
 def njpw_from_api():
     events = []
     covered = set()   # exact dates an API series already accounts for
-    spans = []        # (start_date, end_date) per loaded tour, to swallow tz date-shifts
+    spans = []        # retained for callers that still pass API tour ranges
     failures = []
-    for sid in load_njpw_series_ids():
+    series_ids = load_njpw_series_ids()
+    if not series_ids:
+        msg = "no NJPW series IDs configured"
+        print(f"  ! NJPW series list failed: {msg}", file=sys.stderr)
+        return events, covered, spans, [("series-list", msg)]
+    for sid in series_ids:
         try:
             d = json.loads(fetch(NJPW_API.format(id=sid)))
         except Exception as e:
@@ -156,7 +185,12 @@ def njpw_from_api():
             v = t.get("venue") or {}
             pref = (v.get("prefecture") or "").strip()
             stadium = (v.get("stadium_name") or "").strip()
-            tz = FOREIGN_TZ.get(pref, "Asia/Tokyo")
+            tz = njpw_timezone(pref, stadium)
+            if not tz:
+                msg = f"unknown timezone for {pref} venue: {stadium or '(missing venue)'}"
+                print(f"  ! NJPW series {sid} {msg}", file=sys.stderr)
+                failures.append((sid, msg))
+                continue
             hm = parse_bell(t.get("start_time"))
             loc = ", ".join(x for x in (stadium, pref) if x)
             if pref and pref != "USA" and pref not in stadium:
@@ -173,7 +207,7 @@ def njpw_from_api():
                 summary=f"NJPW — {name}" + (f" · {region}" if region else ""),
                 location=loc, desc=" ".join(desc_bits),
                 date=day, hm=hm, tz=tz))
-            covered.add(day)
+            covered.update(api_covered_dates(day, hm, tz))
             span_days.append(day)
         if span_days:
             spans.append((min(span_days) - timedelta(days=1),
@@ -215,7 +249,7 @@ def njpw_from_gcal(covered, spans):
         day = dt.date()
         if not (today <= day <= horizon):
             continue
-        if any(a <= day <= b for a, b in spans):  # inside a loaded tour (tz date-shift dup)
+        if day in covered:
             continue
         source_uid = (muid.group(1).strip() if muid else f"{day:%Y%m%d}-{idx}")
         source_uid = re.sub(r"[^A-Za-z0-9@._-]+", "-", source_uid).strip("-")
@@ -390,6 +424,40 @@ BEGIN:STANDARD
 TZOFFSETFROM:-0500
 TZOFFSETTO:-0600
 TZNAME:CST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+TZNAME:PDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+TZNAME:PST
 DTSTART:19701101T020000
 RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
 END:STANDARD
