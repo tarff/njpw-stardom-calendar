@@ -3,5 +3,3 @@ _sample_*.json
 __pycache__/
 *.pyc
 
-__pycache__/
-*.pyc
