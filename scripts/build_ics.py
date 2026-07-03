@@ -65,13 +65,20 @@ def parse_bell(s):
     t = s.strip().upper().replace(" ", "")
     m = re.fullmatch(r"(\d{1,2}):(\d{2})", t)
     if m:
-        return int(m.group(1)), int(m.group(2))
+        h, minute = int(m.group(1)), int(m.group(2))
+        if 0 <= h <= 23 and 0 <= minute <= 59:
+            return h, minute
+        return None
     m = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?(AM|PM)", t)
     if m:
-        h = int(m.group(1)) % 12
+        raw_h = int(m.group(1))
+        minute = int(m.group(2) or 0)
+        if not (1 <= raw_h <= 12 and 0 <= minute <= 59):
+            return None
+        h = raw_h % 12
         if m.group(3) == "PM":
             h += 12
-        return h, int(m.group(2) or 0)
+        return h, minute
     return None
 
 
@@ -110,16 +117,18 @@ def njpw_from_api():
     events = []
     covered = set()   # exact dates an API series already accounts for
     spans = []        # (start_date, end_date) per loaded tour, to swallow tz date-shifts
+    failures = []
     for sid in load_njpw_series_ids():
         try:
             d = json.loads(fetch(NJPW_API.format(id=sid)))
         except Exception as e:
             print(f"  ! NJPW series {sid} fetch failed: {e}", file=sys.stderr)
+            failures.append((sid, str(e)))
             continue
         name = pretty_series(d.get("twitter_hash_tags"), d.get("stadium_name"))
         shows = d.get("tournaments") or []
         span_days = []
-        for t in shows:
+        for idx, t in enumerate(shows, 1):
             ds = (t.get("event_start_date") or "")[:10]
             try:
                 day = datetime.strptime(ds, "%Y-%m-%d").date()
@@ -139,8 +148,9 @@ def njpw_from_api():
             if t.get("doors_open"):
                 desc_bits.append(f"Doors {t['doors_open']}.")
             region = pref if pref else ""
+            source_id = t.get("post_id") or f"{sid}-{ds}-{idx}"
             events.append(Event(
-                uid=f"njpw-{sid}-{ds}@njpw-stardom-cal",
+                uid=f"njpw-{source_id}@njpw-stardom-cal",
                 summary=f"NJPW — {name}" + (f" · {region}" if region else ""),
                 location=loc, desc=" ".join(desc_bits),
                 date=day, hm=hm, tz=tz))
@@ -149,7 +159,7 @@ def njpw_from_api():
         if span_days:
             spans.append((min(span_days) - timedelta(days=1),
                           max(span_days) + timedelta(days=1)))
-    return events, covered, spans
+    return events, covered, spans, failures
 
 
 def njpw_from_gcal(covered, spans):
@@ -163,9 +173,11 @@ def njpw_from_gcal(covered, spans):
     raw = raw.replace("\r\n", "\n").replace("\n ", "")  # unfold
     today = datetime.now(JST).date()
     horizon = today + timedelta(days=GCAL_WINDOW_DAYS)
-    for block in re.findall(r"BEGIN:VEVENT(.*?)END:VEVENT", raw, re.S):
+    seen_uids = set()
+    for idx, block in enumerate(re.findall(r"BEGIN:VEVENT(.*?)END:VEVENT", raw, re.S), 1):
         mds = re.search(r"\nDTSTART[^:]*:([0-9T]+Z?)", block)
         msum = re.search(r"\nSUMMARY:(.*)", block)
+        muid = re.search(r"\nUID:(.*)", block)
         if not mds:
             continue
         rawdt = mds.group(1)
@@ -182,22 +194,26 @@ def njpw_from_gcal(covered, spans):
         except ValueError:
             continue
         day = dt.date()
-        if day in covered or not (today <= day <= horizon):
+        if not (today <= day <= horizon):
             continue
         if any(a <= day <= b for a, b in spans):  # inside a loaded tour (tz date-shift dup)
             continue
+        source_uid = (muid.group(1).strip() if muid else f"{day:%Y%m%d}-{idx}")
+        source_uid = re.sub(r"[^A-Za-z0-9@._-]+", "-", source_uid).strip("-")
+        if source_uid in seen_uids:
+            continue
+        seen_uids.add(source_uid)
         summary = (msum.group(1).strip() if msum else "NJPW Event")
         # summaries look like "Road to G1 CLIMAX （東京・後楽園ホール）"
         name, _, venue = summary.partition("（")  # fullwidth (
         name = name.strip() or "NJPW Event"
         venue = venue.rstrip("）").strip()  # trailing fullwidth )
         events.append(Event(
-            uid=f"njpw-gcal-{day:%Y%m%d}@njpw-stardom-cal",
+            uid=f"njpw-gcal-{source_uid}",
             summary=f"NJPW — {name}",
             location=venue,
             desc="Source: njpwworld Schedule (near-term).",
             date=day, hm=hm, tz="Asia/Tokyo"))
-        covered.add(day)
     return events
 
 
@@ -276,8 +292,8 @@ def emit(events, stamp):
         "PRODID:-//njpw-stardom-cal//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
         "X-WR-CALNAME:NJPW & Stardom", "X-WR-TIMEZONE:Asia/Tokyo",
         "REFRESH-INTERVAL;VALUE=DURATION:PT12H", "X-PUBLISHED-TTL:PT12H",
-        "X-WR-CALDESC:" + esc(f"NJPW (official API) + Stardom shows. Auto-rebuilt daily. "
-                              f"Times auto-convert to your device timezone. Last build {stamp} UTC."),
+        "X-WR-CALDESC:" + esc("NJPW (official API) + Stardom shows. Auto-rebuilt daily. "
+                              "Times auto-convert to your device timezone."),
     ]
     body = [VTIMEZONES]
     for e in sorted(events, key=lambda x: (x.date, x.hm or (0, 0))):
@@ -305,8 +321,14 @@ def emit(events, stamp):
 
 
 def main():
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    njpw, covered, spans = njpw_from_api()
+    # Deterministic DTSTAMP: identical source data -> byte-identical file, so the daily
+    # CI job only commits when something real changed (no wall-clock churn). DTSTAMP is
+    # metadata only; subscribed clients update events by UID + DTSTART, not DTSTAMP.
+    stamp = "20260101T000000Z"
+    njpw, covered, spans, api_failures = njpw_from_api()
+    if api_failures:
+        print("Refusing to write: required NJPW API fetch failed.", file=sys.stderr)
+        sys.exit(1)
     print(f"NJPW from API: {len(njpw)} shows")
     borrowed = njpw_from_gcal(covered, spans)
     print(f"NJPW from Google mirror (extra near-term): {len(borrowed)} shows")
