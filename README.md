@@ -20,8 +20,14 @@ automatically (e.g. a 15:00 JST bell shows as 16:00 in Sydney during winter).
 - **NJPW** — from the official NJPW schedule API (`app.njpw1972.com`), English venues + confirmed
   bell times, full announced horizon. Near-term one-off shows are also pulled from the public
   "njpwworld Schedule" Google Calendar so nothing near-term is missed.
-- **Stardom** — from [`data/stardom.json`](data/stardom.json) (Stardom has no public API).
-  Shows whose bell time isn't announced yet appear as **all-day** entries — no time is ever guessed.
+- **Stardom** — scraped best-effort from the official site (`wwr-stardom.com`): the monthly
+  schedule grid for show dates/names (Stardom's own `box_game` shows only — other-promotion
+  and press-conference entries are excluded), and each near-term show's detail page for the
+  confirmed bell time. Merged as a **union** with the hand-maintained baseline
+  [`data/stardom.json`](data/stardom.json): the scrape fills bell times and adds newly-listed
+  shows, while the baseline is never dropped (and wins for curated names/venues). If the scrape
+  fails, the baseline is used as-is. Shows with no announced bell time appear as **all-day** —
+  no time is ever guessed.
 
 ## Keeping it current
 
@@ -29,8 +35,10 @@ automatically (e.g. a 15:00 JST bell shows as 16:00 in Sydney during winter).
   tour, add its series ID to [`data/njpw_series.txt`](data/njpw_series.txt) (the number in the
   series page URL, e.g. `njpw1972.com/636143` → `636143`) for clean English + full horizon. Until
   then, new shows still appear ~1 month out via the Google mirror.
-- **Stardom:** edit [`data/stardom.json`](data/stardom.json) — fill a `time` (JST `"HH:MM"`) as
-  bell times are announced, or add/remove show rows. The `null` time means all-day.
+- **Stardom:** mostly self-updating now — the daily scrape fills bell times and adds newly-listed
+  shows automatically. [`data/stardom.json`](data/stardom.json) remains the fallback/override:
+  edit it to correct a scrape mistake, pre-seed a show announced by press release before it hits
+  the live grid, or provide a bell time the site lists only in Japanese.
 
 Any push to `data/` or `scripts/` rebuilds immediately; otherwise it rebuilds daily at 05:00 JST.
 

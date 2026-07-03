@@ -50,6 +50,17 @@ FOREIGN_TZ = {
     "USA": "America/Chicago",  # only current US venue (NOW Arena) is in Illinois / Central
 }
 
+# Stardom scraper (best-effort): official WordPress site, monthly grid + per-show detail page.
+STARDOM_MONTH = "https://wwr-stardom.com/en/schedule/?ym={ym}"
+STARDOM_DETAIL = "https://wwr-stardom.com/en/schedule/{slug}/"
+STARDOM_MONTHS = 4              # months of grid to enumerate from the current JST month
+STARDOM_DETAIL_LOOKAHEAD = 40  # only fetch a detail page for a bell time within N days
+STARDOM_VENUE_HINT = {         # nicer LOCATION for common slug tokens; else title-cased token
+    "korakuen": "Korakuen Hall, Tokyo",
+    "otaku": "Ota Ward Gymnasium, Tokyo",
+    "ota": "Ota Ward Gymnasium, Tokyo",
+}
+
 
 def fetch(url, binary=False):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -225,21 +236,112 @@ def njpw_from_gcal(covered, spans):
     return events
 
 
-def stardom_events():
-    events = []
-    d = json.loads((DATA / "stardom.json").read_text(encoding="utf-8"))
-    for s in d.get("shows", []):
-        try:
-            day = datetime.strptime(s["date"], "%Y-%m-%d").date()
-        except (ValueError, KeyError):
+def stardom_month_shows(html_text):
+    """Parse a monthly grid page -> [(YYYYMMDD, slug, name)] for Stardom's OWN shows only.
+
+    box_game = Stardom in-ring show; box_other = other promotion; box_event = press conf.
+    """
+    import html as _html
+    shows = []
+    for slug, box, title in re.findall(
+            r'href="[^"]*/schedule/(20\d{6}_[^/"]+)/"[^>]*><div class="(box_[a-z]+)">(.*?)</div>',
+            html_text, re.S):
+        if box != "box_game":
             continue
-        hm = parse_bell(s.get("time"))
-        desc = (f"Bell {s['time']} JST (confirmed)." if s.get("time")
-                else "Bell time not yet announced.")
+        name = _html.unescape(re.sub(r"<[^>]+>", "", title)).strip()
+        shows.append((slug[:8], slug, name))
+    return shows
+
+
+def parse_stardom_bell(html_text):
+    """Detail page -> (h, m) bell time or None. Uses the precise English phrase so it does
+    not pick up the autograph-session time (Japanese 開始 is ambiguous)."""
+    import html as _html
+    t = re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", html_text)))
+    m = re.search(r"start time for the main event\s*(\d{1,2}):(\d{2})", t)
+    if not m:
+        return None
+    h, mi = int(m.group(1)), int(m.group(2))
+    return (h, mi) if h < 24 and mi < 60 else None
+
+
+def clean_stardom_name(n):
+    n = re.sub(r"^Sammy presents\s*", "", n, flags=re.I)
+    n = n.replace("5★STAR", "5STAR").replace("5☆STAR", "5STAR")
+    n = re.split(r"[　-鿿＀-￯]", n)[0]  # drop trailing JP venue text
+    return re.sub(r"\s+", " ", n).strip()
+
+
+def scrape_stardom():
+    """Best-effort: {date_str: {'name','venue','hm'}} from the official site, {} on total failure."""
+    today = datetime.now(JST).date()
+    months, y, mo = [], today.year, today.month
+    for _ in range(STARDOM_MONTHS):
+        months.append(f"{y}{mo:02d}")
+        mo = mo + 1 if mo < 12 else 1
+        y = y + 1 if mo == 1 else y
+    out, got_any = {}, False
+    for ym in months:
+        try:
+            page = fetch(STARDOM_MONTH.format(ym=ym))
+        except Exception as e:
+            print(f"  ! Stardom grid {ym} failed: {e}", file=sys.stderr)
+            continue
+        got_any = True
+        for ymd, slug, name in stardom_month_shows(page):
+            ds = f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}"
+            if ds in out:
+                continue
+            try:
+                day = datetime.strptime(ds, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            token = slug.split("_", 1)[1] if "_" in slug else ""
+            venue = STARDOM_VENUE_HINT.get(token, token.replace("-", " ").title())
+            hm = None
+            if today <= day <= today + timedelta(days=STARDOM_DETAIL_LOOKAHEAD):
+                try:
+                    hm = parse_stardom_bell(fetch(STARDOM_DETAIL.format(slug=slug)))
+                except Exception as e:
+                    print(f"  - Stardom detail {slug} failed: {e}", file=sys.stderr)
+            out[ds] = {"name": clean_stardom_name(name), "venue": venue, "hm": hm}
+    return out if got_any else {}
+
+
+def stardom_events():
+    """Union of the hand-maintained baseline (data/stardom.json) and the best-effort scrape.
+
+    Scrape wins for bell times (fresh); baseline wins for curated names/venues; neither side
+    drops the other's shows (the live grid isn't always a superset of announced tour stops).
+    """
+    baseline = {}
+    try:
+        d = json.loads((DATA / "stardom.json").read_text(encoding="utf-8"))
+        for s in d.get("shows", []):
+            if s.get("date"):
+                baseline[s["date"]] = s
+    except Exception as e:
+        print(f"  ! Stardom baseline read failed: {e}", file=sys.stderr)
+
+    scraped = scrape_stardom()
+    print(f"Stardom: {len(baseline)} baseline + {len(scraped)} scraped "
+          f"= {len(set(baseline) | set(scraped))} shows")
+
+    events = []
+    for ds in sorted(set(baseline) | set(scraped)):
+        try:
+            day = datetime.strptime(ds, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        b, s = baseline.get(ds), scraped.get(ds)
+        hm = (s or {}).get("hm") or parse_bell((b or {}).get("time"))  # scrape time first, never invent
+        name = (b or {}).get("name") or (s or {}).get("name") or "Stardom"
+        venue = (b or {}).get("venue") or (s or {}).get("venue") or ""
+        summary = "Stardom" + name[7:] if name.lower().startswith("stardom") else f"Stardom — {name}"
+        desc = (f"Bell {hm[0]:02d}:{hm[1]:02d} JST." if hm else "Bell time not yet announced.")
         events.append(Event(
-            uid=f"stardom-{s['date']}@njpw-stardom-cal",
-            summary=f"Stardom — {s.get('name','Stardom')}",
-            location=s.get("venue", ""), desc=desc,
+            uid=f"stardom-{ds}@njpw-stardom-cal",
+            summary=summary, location=venue, desc=desc,
             date=day, hm=hm, tz="Asia/Tokyo"))
     return events
 
@@ -341,7 +443,6 @@ def main():
     borrowed = njpw_from_gcal(covered, spans)
     print(f"NJPW from Google mirror (extra near-term): {len(borrowed)} shows")
     star = stardom_events()
-    print(f"Stardom: {len(star)} shows")
     events = njpw + borrowed + star
     if len(events) < 10:
         print("Refusing to write: implausibly few events (source failure?)", file=sys.stderr)
