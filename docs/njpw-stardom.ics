@@ -88,15 +88,6 @@ LOCATION:ATC Hall C\, Osaka
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-gcal-3a0t1te8fdklk32g1g0vpp8uji@google.com
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20260707T183000
-DTEND;TZID=Asia/Tokyo:20260707T213000
-SUMMARY:NJPW — タイガーマスク 引退記念試合
-LOCATION:東京・後楽園ホール
-DESCRIPTION:Source: njpwworld Schedule (near-term).
-END:VEVENT
-BEGIN:VEVENT
 UID:stardom-2026-07-08@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20260708T183000
