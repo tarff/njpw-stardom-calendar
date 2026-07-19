@@ -115,22 +115,13 @@ LOCATION:Arena Ota (Ota Ward General Sports Center)\, Tokyo
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-642465@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20260719T140000
-DTEND;TZID=Asia/Tokyo:20260719T170000
-SUMMARY:NJPW — G1 Climax 36 · Hokkaido
-LOCATION:Hokkaido Prefectural Sports Center“Hokkai Kitayell\, Hokkaido
-DESCRIPTION:Bell 14:00 JST (NJPW official). Doors 12:30.
-END:VEVENT
-BEGIN:VEVENT
 UID:stardom-2026-07-19@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20260719T150000
-DTEND;TZID=Asia/Tokyo:20260719T180000
+DTSTART;VALUE=DATE:20260719
+DTEND;VALUE=DATE:20260720
 SUMMARY:Stardom 5STAR GP 2026 in Toyohashi
 LOCATION:Loisir Hotel Toyohashi (Holiday Hall)
-DESCRIPTION:Bell 15:00 JST.
+DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
 UID:stardom-2026-07-20@njpw-stardom-cal
