@@ -14,6 +14,18 @@ def load_builder():
     return module
 
 
+def fetch_map(mapping):
+    """fetch() stub: first URL substring that matches wins. Exception values are raised."""
+    def _fetch(url, binary=False):
+        for key, payload in mapping.items():
+            if key in url:
+                if isinstance(payload, Exception):
+                    raise payload
+                return __import__("json").dumps(payload)
+        raise OSError(f"unexpected URL: {url}")
+    return _fetch
+
+
 class BuildIcsTests(unittest.TestCase):
     def setUp(self):
         self.builder = load_builder()
@@ -63,6 +75,7 @@ class BuildIcsTests(unittest.TestCase):
             for i in range(20)
         ]
 
+        self.builder.discover_njpw_series_ids = lambda: (["999"], [])
         self.builder.fetch = lambda url, binary=False: __import__("json").dumps({
             "twitter_hash_tags": "G1CLIMAX36",
             "tournaments": [],
@@ -97,7 +110,7 @@ class BuildIcsTests(unittest.TestCase):
             ],
         }
 
-        self.builder.load_njpw_series_ids = lambda: ["999"]
+        self.builder.discover_njpw_series_ids = lambda: (["999"], [])
         self.builder.fetch = lambda url, binary=False: __import__("json").dumps(payload)
 
         events, covered, spans, failures = self.builder.njpw_from_api()
@@ -223,7 +236,7 @@ END:VCALENDAR
             ],
         }
 
-        self.builder.load_njpw_series_ids = lambda: ["999"]
+        self.builder.discover_njpw_series_ids = lambda: (["999"], [])
         self.builder.fetch = lambda url, binary=False: __import__("json").dumps(payload)
 
         events, covered, spans, failures = self.builder.njpw_from_api()
@@ -245,7 +258,7 @@ END:VCALENDAR
             ],
         }
 
-        self.builder.load_njpw_series_ids = lambda: ["999"]
+        self.builder.discover_njpw_series_ids = lambda: (["999"], [])
         self.builder.fetch = lambda url, binary=False: __import__("json").dumps(payload)
 
         events, covered, spans, failures = self.builder.njpw_from_api()
@@ -253,13 +266,80 @@ END:VCALENDAR
         self.assertEqual([], failures)
         self.assertEqual("America/New_York", events[0].tz)
 
-    def test_njpw_api_fails_when_series_list_is_empty(self):
-        self.builder.load_njpw_series_ids = lambda: []
+    def test_series_ids_come_from_the_schedule_index(self):
+        self.builder.fetch = fetch_map({
+            "/pagination/1.json": {"AllCount": 2, "posts": [{"post_id": "111"}, {"post_id": 222}]},
+            "/pagination/2.json": {"AllCount": 2, "posts": [{"post_id": 222}, {"post_id": "333"}]},
+        })
+
+        ids, failures = self.builder.discover_njpw_series_ids()
+
+        self.assertEqual([], failures)
+        self.assertEqual(["111", "222", "333"], ids)
+
+    def test_series_index_fetch_failure_is_fatal(self):
+        self.builder.fetch = fetch_map({"/pagination/1.json": OSError("simulated outage")})
+
+        ids, failures = self.builder.discover_njpw_series_ids()
+
+        self.assertEqual([], ids)
+        self.assertEqual(1, len(failures))
+
+    def test_series_index_with_no_series_is_fatal(self):
+        self.builder.fetch = fetch_map({"/pagination/1.json": {"AllCount": 1, "posts": []}})
+
+        ids, failures = self.builder.discover_njpw_series_ids()
+
+        self.assertEqual([], ids)
+        self.assertEqual(1, len(failures))
+
+    def test_series_index_without_a_page_count_is_fatal(self):
+        # Trusting a missing AllCount would silently publish only page 1 of the schedule.
+        self.builder.fetch = fetch_map({"/pagination/1.json": {"posts": [{"post_id": "111"}]}})
+
+        ids, failures = self.builder.discover_njpw_series_ids()
+
+        self.assertEqual(1, len(failures))
+
+    def test_summary_uses_series_title_from_the_api(self):
+        self.builder.discover_njpw_series_ids = lambda: (["999"], [])
+        self.builder.fetch = fetch_map({
+            "/series/posts/999.json": {"series_title": "  SUPER Jr. TAG LEAGUE  2026  "},
+            "/schedule/list/999.json": {
+                "twitter_hash_tags": "sjtl",
+                "tournaments": [{
+                    "post_id": 555,
+                    "event_start_date": "2026-01-02T00:00:00+09:00",
+                    "start_time": "18:30",
+                    "venue": {"stadium_name": "Korakuen Hall", "prefecture": "Tokyo"},
+                }],
+            },
+        })
 
         events, covered, spans, failures = self.builder.njpw_from_api()
 
-        self.assertEqual([], events)
-        self.assertEqual([("series-list", "no NJPW series IDs configured")], failures)
+        self.assertEqual([], failures)
+        self.assertEqual("NJPW — SUPER Jr. TAG LEAGUE 2026 · Tokyo", events[0].summary)
+
+    def test_missing_series_title_falls_back_without_failing_the_build(self):
+        self.builder.discover_njpw_series_ids = lambda: (["999"], [])
+        self.builder.fetch = fetch_map({
+            "/series/posts/999.json": OSError("title unavailable"),
+            "/schedule/list/999.json": {
+                "twitter_hash_tags": "sjtl",
+                "tournaments": [{
+                    "post_id": 555,
+                    "event_start_date": "2026-01-02T00:00:00+09:00",
+                    "start_time": "18:30",
+                    "venue": {"stadium_name": "Korakuen Hall", "prefecture": "Tokyo"},
+                }],
+            },
+        })
+
+        events, covered, spans, failures = self.builder.njpw_from_api()
+
+        self.assertEqual([], failures)
+        self.assertEqual("NJPW — sjtl · Tokyo", events[0].summary)
 
     def test_calendar_description_does_not_embed_changing_stamp(self):
         event = self.builder.Event(

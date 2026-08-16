@@ -31,10 +31,10 @@ automatically (e.g. a 15:00 JST bell shows as 16:00 in Sydney during winter).
 
 ## Keeping it current
 
-- **NJPW:** everything inside an announced tour updates automatically. When NJPW announces a **new**
-  tour, add its series ID to [`data/njpw_series.txt`](data/njpw_series.txt) (the number in the
-  series page URL, e.g. `njpw1972.com/636143` → `636143`) for clean English + full horizon. Until
-  then, new shows still appear ~1 month out via the Google mirror.
+- **NJPW:** fully self-updating. The builder reads NJPW's own paginated schedule index, so new
+  tours appear as soon as NJPW lists them and finished tours drop off by themselves — no ID list
+  to maintain. Anything the index hasn't picked up yet still appears ~1 month out via the Google
+  mirror.
 - **Stardom:** mostly self-updating now — the daily scrape fills bell times and adds newly-listed
   shows automatically. [`data/stardom.json`](data/stardom.json) remains the fallback/override:
   edit it to correct a scrape mistake, pre-seed a show announced by press release before it hits

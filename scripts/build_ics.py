@@ -7,8 +7,10 @@ Sources
 NJPW (reliable):
   * Official schedule API, one static JSON per tour ("series"):
       https://app.njpw1972.com/series/tournaments/schedule/list/<ID>.json
-    IDs are listed in data/njpw_series.txt. Gives English venues + confirmed bell times,
-    full announced horizon (untruncated).
+    The IDs are discovered from the site's own paginated schedule index, so tours roll
+    over on their own (NJPW deletes a series JSON once the tour has finished, which used
+    to break the build the morning after every tour). Gives English venues + confirmed
+    bell times, full announced horizon (untruncated).
   * Public "njpwworld Schedule" Google Calendar (auto-enumerates near-term shows incl.
     one-offs). Used only to FILL dates the API series don't already cover, so brand-new
     tours show up ~1 month out before their series ID is added.
@@ -34,17 +36,14 @@ DATA = ROOT / "data"
 OUT = ROOT / "docs" / "njpw-stardom.ics"
 
 NJPW_API = "https://app.njpw1972.com/series/tournaments/schedule/list/{id}.json"
+NJPW_SERIES_INDEX = "https://app.njpw1972.com/series/tournaments/schedule/pagination/{page}.json"
+NJPW_SERIES_META = "https://app.njpw1972.com/series/posts/{id}.json"
 GCAL_ICS = ("https://calendar.google.com/calendar/ical/"
             "n6l35ni6rcbffi1m4m5g5ocnh4%40group.calendar.google.com/public/basic.ics")
 UA = "Mozilla/5.0 (compatible; njpw-stardom-cal/1.0; +https://github.com/)"
 GCAL_WINDOW_DAYS = 60  # how far ahead to trust/borrow from the Google mirror
 
 JST = timezone(timedelta(hours=9))
-
-# Pretty names for NJPW series hashtags (extend as needed).
-SERIES_NAMES = {
-    "G1CLIMAX36": "G1 Climax 36",
-}
 
 # NJPW's API currently exposes US shows with prefecture="USA", so country alone is not
 # enough to choose the venue-local timezone. Unknown US venues fail the build rather than
@@ -117,15 +116,6 @@ def parse_bell(s):
     return None
 
 
-def pretty_series(hashtag, fallback):
-    if hashtag and hashtag in SERIES_NAMES:
-        return SERIES_NAMES[hashtag]
-    if hashtag:
-        # e.g. NEWJAPANCUP2026 -> "New Japan Cup 2026"-ish; leave hashtag if unmapped
-        return hashtag
-    return fallback or "NJPW Event"
-
-
 class Event:
     __slots__ = ("uid", "summary", "location", "desc", "date", "hm", "tz")
 
@@ -139,13 +129,56 @@ class Event:
         self.tz = tz
 
 
-def load_njpw_series_ids():
-    ids = []
-    for line in (DATA / "njpw_series.txt").read_text(encoding="utf-8").splitlines():
-        line = line.split("#", 1)[0].strip()
-        if line.isdigit():
-            ids.append(line)
-    return ids
+def discover_njpw_series_ids():
+    """Current + upcoming series post_ids from the site's own schedule index.
+
+    Same endpoint njpw1972.com/schedule paginates over: AllCount is the page count and
+    each page carries a handful of posts. Anything odd (fetch failure, missing page
+    count, empty index) is reported as a failure rather than silently publishing a
+    partial schedule. Returns (ids, failures).
+    """
+    ids, page, pages = [], 1, None
+    while pages is None or page <= pages:
+        url = NJPW_SERIES_INDEX.format(page=page)
+        try:
+            d = json.loads(fetch(url))
+        except Exception as e:
+            print(f"  ! NJPW series index page {page} fetch failed: {e}", file=sys.stderr)
+            return [], [("series-index", str(e))]
+        if not isinstance(d, dict) or not isinstance(d.get("AllCount"), int) or d["AllCount"] < 1:
+            msg = f"index page {page} had no usable page count"
+            print(f"  ! NJPW series index failed: {msg}", file=sys.stderr)
+            return [], [("series-index", msg)]
+        pages = d["AllCount"]
+        posts = d.get("posts") or []
+        if not posts:
+            break
+        for p in posts:
+            pid = str((p or {}).get("post_id") or "").strip()
+            if pid.isdigit() and pid not in ids:
+                ids.append(pid)
+        page += 1
+    if not ids:
+        msg = "schedule index listed no series"
+        print(f"  ! NJPW series index failed: {msg}", file=sys.stderr)
+        return [], [("series-index", msg)]
+    return ids, []
+
+
+def series_title(sid):
+    """Human tour name, e.g. 'SUPER Jr. TAG LEAGUE 2026 ～Road to POWER STRUGGLE～'.
+
+    Cosmetic only: the schedule itself comes from the list endpoint, so a failure here
+    degrades the summary instead of blocking the build.
+    """
+    try:
+        d = json.loads(fetch(NJPW_SERIES_META.format(id=sid)))
+    except Exception as e:
+        print(f"  - NJPW series {sid} title fetch failed: {e}", file=sys.stderr)
+        return ""
+    if not isinstance(d, dict):
+        return ""
+    return re.sub(r"\s+", " ", d.get("series_title") or "").strip()
 
 
 def njpw_from_api():
@@ -153,11 +186,9 @@ def njpw_from_api():
     covered = set()   # exact dates an API series already accounts for
     spans = []        # retained for callers that still pass API tour ranges
     failures = []
-    series_ids = load_njpw_series_ids()
-    if not series_ids:
-        msg = "no NJPW series IDs configured"
-        print(f"  ! NJPW series list failed: {msg}", file=sys.stderr)
-        return events, covered, spans, [("series-list", msg)]
+    series_ids, failures = discover_njpw_series_ids()
+    if failures:
+        return events, covered, spans, failures
     for sid in series_ids:
         try:
             d = json.loads(fetch(NJPW_API.format(id=sid)))
@@ -169,7 +200,8 @@ def njpw_from_api():
             print(f"  ! NJPW series {sid} response was not a JSON object", file=sys.stderr)
             failures.append((sid, "invalid response shape"))
             continue
-        name = pretty_series(d.get("twitter_hash_tags"), d.get("stadium_name"))
+        name = (series_title(sid) or d.get("twitter_hash_tags")
+                or d.get("stadium_name") or "NJPW Event")
         shows = d.get("tournaments")
         if not isinstance(shows, list) or not shows:
             print(f"  ! NJPW series {sid} response had no tournament shows", file=sys.stderr)
