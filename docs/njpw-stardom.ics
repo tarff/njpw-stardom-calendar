@@ -250,14 +250,6 @@ LOCATION:Ryogoku Kokugikan (Sumo Hall)\, Tokyo
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-gcal-70sh0i215snlni7o1r6h2ssdsf@google.com
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20260826T200000
-DTEND;TZID=Asia/Tokyo:20260826T230000
-SUMMARY:NJPW — NJPWWORLD RADIO ウルフアロンの満月の夜に
-DESCRIPTION:Source: njpwworld Schedule (near-term).
-END:VEVENT
-BEGIN:VEVENT
 UID:njpw-gcal-5hh6bhftd2u4ssgl8hv7utir28@google.com
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20260828T183000
