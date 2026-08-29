@@ -250,15 +250,6 @@ LOCATION:Ryogoku Kokugikan (Sumo Hall)\, Tokyo
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-gcal-5hh6bhftd2u4ssgl8hv7utir28@google.com
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20260828T183000
-DTEND;TZID=Asia/Tokyo:20260828T213000
-SUMMARY:NJPW — ミラノ式新日本解体深書LIVE 〜上村優也と
- G1決勝を生深掘り〜
-DESCRIPTION:Source: njpwworld Schedule (near-term).
-END:VEVENT
-BEGIN:VEVENT
 UID:njpw-657077@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20260830T150000
