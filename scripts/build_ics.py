@@ -75,7 +75,7 @@ def api_covered_dates(day, hm, tz):
 
 # Stardom scraper (best-effort): official WordPress site, monthly grid + per-show detail page.
 STARDOM_MONTH = "https://wwr-stardom.com/en/schedule/?ym={ym}"
-STARDOM_DETAIL = "https://wwr-stardom.com/en/schedule/{slug}/"
+STARDOM_DETAIL = "https://wwr-stardom.com/en/{kind}/{slug}/"
 STARDOM_MONTHS = 4              # months of grid to enumerate from the current JST month
 STARDOM_DETAIL_LOOKAHEAD = 40  # only fetch a detail page for a bell time within N days
 STARDOM_VENUE_HINT = {         # nicer LOCATION for common slug tokens; else title-cased token
@@ -302,21 +302,55 @@ def njpw_from_gcal(covered, spans):
     return events
 
 
+class StardomGridChanged(Exception):
+    """The monthly grid still lists shows but the markup no longer parses."""
+
+
 def stardom_month_shows(html_text):
-    """Parse a monthly grid page -> [(YYYYMMDD, slug, name)] for Stardom's OWN shows only.
+    """Parse a monthly grid page -> [(YYYYMMDD, kind, slug, name)] for Stardom's OWN shows.
 
     box_game = Stardom in-ring show; box_other = other promotion; box_event = press conf.
+    kind is the path the grid linked to ("schedule" for upcoming, "event" for match-card
+    and results pages); the detail fetch has to reuse it.
     """
     import html as _html
     shows = []
-    for slug, box, title in re.findall(
-            r'href="[^"]*/schedule/(20\d{6}_[^/"]+)/"[^>]*><div class="(box_[a-z]+)">(.*?)</div>',
+    for kind, slug, box, title in re.findall(
+            r'href="[^"]*/(schedule|event)/(20\d{6}[-_][^/"]+)/"[^>]*>'
+            r'<div class="(box_[a-z]+)">(.*?)</div>',
             html_text, re.S):
         if box != "box_game":
             continue
         name = _html.unescape(re.sub(r"<[^>]+>", "", title)).strip()
-        shows.append((slug[:8], slug, name))
+        shows.append((slug[:8], kind, slug, name))
     return shows
+
+
+def stardom_info_boxes(html_text):
+    """Parse the page's INFORMATION list -> {slug: (YYYY-MM-DD, title, place)}.
+
+    Preferred over the calendar tile: a slug's date prefix belongs to the series, not the
+    show (SAKAE ~Day2~ is slugged 20261002 but runs on the 3rd), and the tile text now runs
+    the venue onto the end of the name with no separator. Entries here are not classified,
+    so the grid still decides which shows are Stardom's own.
+    """
+    import html as _html
+
+    def text(m):
+        return _html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else ""
+
+    info = {}
+    for blk in re.findall(r'<li class="info_box">(.*?)</li>', html_text, re.S):
+        link = re.search(r'/(?:schedule|event)/(20\d{6}[-_][^/"]+)/', blk)
+        day = re.search(r'<p class="date">\s*(\d{4})\.(\d{2})\.(\d{2})', blk)
+        if not link or not day:
+            continue
+        info[link.group(1)] = (
+            f"{day.group(1)}-{day.group(2)}-{day.group(3)}",
+            text(re.search(r'<h2 class="title">(.*?)</h2>', blk, re.S)),
+            text(re.search(r'<p class="place">(.*?)</p>', blk, re.S)),
+        )
+    return info
 
 
 def parse_stardom_bell(html_text):
@@ -346,32 +380,57 @@ def scrape_stardom():
         months.append(f"{y}{mo:02d}")
         mo = mo + 1 if mo < 12 else 1
         y = y + 1 if mo == 1 else y
-    out, got_any = {}, False
+    pages, blind = [], []
     for ym in months:
         try:
             page = fetch(STARDOM_MONTH.format(ym=ym))
         except Exception as e:
             print(f"  ! Stardom grid {ym} failed: {e}", file=sys.stderr)
             continue
-        got_any = True
-        for ymd, slug, name in stardom_month_shows(page):
-            ds = f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}"
+        found = stardom_month_shows(page)
+        # The page advertising box_game while the link parse comes back empty means the
+        # markup moved under us -- not that Stardom announced nothing. Never publish that
+        # as an absence of shows (it silently emptied the calendar for a month in 2026-09).
+        if not found and 'class="box_game"' in page:
+            blind.append(ym)
+        pages.append((found, stardom_info_boxes(page)))
+    if blind:
+        raise StardomGridChanged(
+            "wwr-stardom.com grid lists shows but none parsed for " + ", ".join(blind)
+            + " -- the schedule markup changed; fix stardom_month_shows().")
+    if not pages:
+        return {}
+
+    # A month grid also spills the adjacent months' edge days, so pool every INFORMATION
+    # list before resolving: whichever page a show is tiled on, it gets the clean entry.
+    info = {}
+    for _, month_info in pages:
+        info.update(month_info)
+
+    out = {}
+    for found, _ in pages:
+        for ymd, kind, slug, name in found:
+            entry = info.get(slug)
+            if entry:
+                ds, name, venue = entry
+            else:
+                ds = f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}"
+                token = slug[8:].lstrip("-_")
+                venue = STARDOM_VENUE_HINT.get(token, token.replace("-", " ").title())
             if ds in out:
                 continue
             try:
                 day = datetime.strptime(ds, "%Y-%m-%d").date()
             except ValueError:
                 continue
-            token = slug.split("_", 1)[1] if "_" in slug else ""
-            venue = STARDOM_VENUE_HINT.get(token, token.replace("-", " ").title())
             hm = None
             if today <= day <= today + timedelta(days=STARDOM_DETAIL_LOOKAHEAD):
                 try:
-                    hm = parse_stardom_bell(fetch(STARDOM_DETAIL.format(slug=slug)))
+                    hm = parse_stardom_bell(fetch(STARDOM_DETAIL.format(kind=kind, slug=slug)))
                 except Exception as e:
                     print(f"  - Stardom detail {slug} failed: {e}", file=sys.stderr)
             out[ds] = {"name": clean_stardom_name(name), "venue": venue, "hm": hm}
-    return out if got_any else {}
+    return out
 
 
 def stardom_events():

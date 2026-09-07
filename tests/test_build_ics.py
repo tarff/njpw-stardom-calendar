@@ -355,6 +355,166 @@ END:VCALENDAR
         self.assertNotIn("Last build 20990101T000000Z", out)
 
 
+# Real markup shape from wwr-stardom.com/en/schedule/ (captured 2026-09-08): the slug
+# separator is a hyphen, and Stardom's own shows sit under /en/event/ as well as
+# /en/schedule/. The pre-2026-09 parser required "/schedule/" + an underscore and so
+# silently matched nothing.
+STARDOM_GRID = """
+<li><span class="date">5</span>
+<a href="https://wwr-stardom.com/en/event/20260905-irgevent/" class="pc_only"><div class="box_event">Ito Respect Army Summit 2026</div></a>
+</li>
+<li><span class="date">6</span>
+<a href="https://wwr-stardom.com/en/event/20260906-korakuen/" class="pc_only"><div class="box_game">STARDOM in KORAKUEN 2026 Sep.</div></a>
+</li>
+<li><span class="date">10</span>
+<a href="https://wwr-stardom.com/en/schedule/20260910-itodojo/" class="pc_only"><div class="box_other">[Participating from another organization] Ito Dojo</div></a>
+</li>
+<li><span class="date">12</span>
+<a href="https://wwr-stardom.com/en/schedule/20260912-yokohama/" class="pc_only"><div class="box_game">STARDOM TO THE WORLD 2026</div></a>
+</li>
+"""
+
+
+class StardomGridTests(unittest.TestCase):
+    def setUp(self):
+        self.builder = load_builder()
+
+    def test_month_grid_finds_own_shows_under_both_event_and_schedule_paths(self):
+        shows = self.builder.stardom_month_shows(STARDOM_GRID)
+
+        self.assertEqual(
+            [("20260906", "event", "20260906-korakuen", "STARDOM in KORAKUEN 2026 Sep."),
+             ("20260912", "schedule", "20260912-yokohama", "STARDOM TO THE WORLD 2026")],
+            shows,
+        )
+
+    def test_month_grid_still_excludes_other_promotion_and_press_entries(self):
+        names = [s[3] for s in self.builder.stardom_month_shows(STARDOM_GRID)]
+
+        self.assertNotIn("Ito Respect Army Summit 2026", names)
+        self.assertTrue(all("Ito Dojo" not in n for n in names))
+
+    def test_scrape_fails_loudly_when_every_grid_parses_to_nothing(self):
+        """A silent structural change (the 2026-09 URL rewrite) must not look like
+        'Stardom announced no shows' -- that published a month of empty calendar."""
+        moved = '<a href="/en/whatever/sep6/"><div class="box_game">STARDOM</div></a>'
+        self.builder.fetch = lambda url, binary=False: moved
+
+        with self.assertRaises(self.builder.StardomGridChanged):
+            self.builder.scrape_stardom()
+
+    def test_scrape_tolerates_a_genuinely_empty_month(self):
+        def _fetch(url, binary=False):
+            return STARDOM_GRID if "ym=" in url and url.endswith("09") else "<html></html>"
+
+        self.builder.fetch = _fetch
+        self.builder.STARDOM_DETAIL_LOOKAHEAD = -1  # no detail fetches in this test
+
+        out = self.builder.scrape_stardom()
+
+        self.assertIn("2026-09-06", out)
+        self.assertEqual("Korakuen Hall, Tokyo", out["2026-09-06"]["venue"])
+
+    def test_detail_url_uses_the_path_the_grid_linked_to(self):
+        seen = []
+
+        def _fetch(url, binary=False):
+            seen.append(url)
+            return STARDOM_GRID if "ym=" in url else "The start time for the main event 16:00"
+
+        self.builder.fetch = _fetch
+        self.builder.datetime = FixedStardomDatetime
+        self.builder.scrape_stardom()
+
+        self.assertIn("https://wwr-stardom.com/en/event/20260906-korakuen/", seen)
+        self.assertIn("https://wwr-stardom.com/en/schedule/20260912-yokohama/", seen)
+
+
+class FixedStardomDatetime:
+    @classmethod
+    def now(cls, tz=None):
+        return __import__("datetime").datetime(2026, 9, 1, tzinfo=tz)
+
+    @classmethod
+    def strptime(cls, *args, **kwargs):
+        return __import__("datetime").datetime.strptime(*args, **kwargs)
+
+
+# The grid tile no longer separates show name from venue, and a slug's date prefix belongs
+# to the series, not the show: SAKAE ~Day2~ is slugged 20261002 but runs on the 3rd. The
+# page's INFORMATION list carries the authoritative date, a clean title and a clean venue.
+STARDOM_INFO = """
+<ul class="schedule_list">
+<li class="info_box"><div class="info_text">
+<p class="date">2026.10.02 Fri</p>
+<h2 class="title">STARDOM in SAKAE 2026 Oct. ~Day1~</h2>
+<p class="place">Aichi Chunichi Hall</p>
+</div><a href="https://wwr-stardom.com/en/schedule/20261002-chu-nichi-day1/">Ticket details</a></li>
+<li class="info_box"><div class="info_text">
+<p class="date">2026.10.03 Sat</p>
+<h2 class="title">STARDOM in SAKAE 2026 Oct. ~Day2~</h2>
+<p class="place">Aichi Chunichi Hall</p>
+</div><a href="https://wwr-stardom.com/en/schedule/20261002-chu-nichi-day2/">Ticket details</a></li>
+</ul>
+"""
+
+STARDOM_TWO_DAY_GRID = """
+<a href="https://wwr-stardom.com/en/schedule/20261002-chu-nichi-day1/"><div class="box_game">STARDOM in SAKAE 2026 Oct. ~Day 1~ Aichi, Chunichi Hall</div></a>
+<a href="https://wwr-stardom.com/en/schedule/20261002-chu-nichi-day2/"><div class="box_game">STARDOM in SAKAE 2026 Oct. ~Day 2~ Aichi, Chunichi Hall</div></a>
+""" + STARDOM_INFO
+
+
+class StardomInfoBoxTests(unittest.TestCase):
+    def setUp(self):
+        self.builder = load_builder()
+        self.builder.STARDOM_DETAIL_LOOKAHEAD = -1  # never fetch detail pages here
+
+    def test_info_boxes_give_date_title_and_venue_keyed_by_slug(self):
+        info = self.builder.stardom_info_boxes(STARDOM_INFO)
+
+        self.assertEqual(
+            ("2026-10-03", "STARDOM in SAKAE 2026 Oct. ~Day2~", "Aichi Chunichi Hall"),
+            info["20261002-chu-nichi-day2"],
+        )
+
+    def test_two_shows_sharing_a_slug_date_keep_their_own_days(self):
+        self.builder.fetch = lambda url, binary=False: (
+            STARDOM_TWO_DAY_GRID if "ym=202610" in url else "<html></html>")
+        self.builder.datetime = FixedStardomDatetime
+
+        out = self.builder.scrape_stardom()
+
+        self.assertEqual("STARDOM in SAKAE 2026 Oct. ~Day1~", out["2026-10-02"]["name"])
+        self.assertEqual("STARDOM in SAKAE 2026 Oct. ~Day2~", out["2026-10-03"]["name"])
+        self.assertEqual("Aichi Chunichi Hall", out["2026-10-03"]["venue"])
+
+    def test_a_show_the_information_list_omits_still_falls_back_to_the_grid(self):
+        grid = ('<a href="https://wwr-stardom.com/en/event/20261210-korakuen/">'
+                '<div class="box_game">Korakuen Hall (Evening)</div></a>')
+        self.builder.fetch = lambda url, binary=False: (
+            grid if "ym=202612" in url else "<html></html>")
+        self.builder.datetime = FixedStardomDatetime
+
+        out = self.builder.scrape_stardom()
+
+        self.assertEqual("Korakuen Hall (Evening)", out["2026-12-10"]["name"])
+        self.assertEqual("Korakuen Hall, Tokyo", out["2026-12-10"]["venue"])
+
+    def test_other_promotion_entries_in_the_information_list_are_not_added(self):
+        info = ('<li class="info_box"><div class="info_text">'
+                '<p class="date">2026.10.19 Mon</p>'
+                '<h2 class="title">[Participation] Pro Wrestling Judo</h2>'
+                '<p class="place">Shinkiba 1st RING</p></div>'
+                '<a href="https://wwr-stardom.com/en/schedule/20261019-pw-judo/">t</a></li>')
+        self.builder.fetch = lambda url, binary=False: (
+            STARDOM_TWO_DAY_GRID + info if "ym=202610" in url else "<html></html>")
+        self.builder.datetime = FixedStardomDatetime
+
+        out = self.builder.scrape_stardom()
+
+        self.assertNotIn("2026-10-19", out)
+
+
 class FixedDatetime:
     @classmethod
     def now(cls, tz=None):
