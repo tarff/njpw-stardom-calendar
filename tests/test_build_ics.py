@@ -515,6 +515,56 @@ class StardomInfoBoxTests(unittest.TestCase):
         self.assertNotIn("2026-10-19", out)
 
 
+def vevent(uid, day):
+    return "\r\n".join([
+        "BEGIN:VEVENT", f"UID:{uid}", "DTSTAMP:20260101T000000Z",
+        f"DTSTART;TZID=Asia/Tokyo:{day:%Y%m%d}T160000",
+        f"DTEND;TZID=Asia/Tokyo:{day:%Y%m%d}T190000",
+        "SUMMARY:NJPW — Road to DESTRUCTION · Tochigi", "END:VEVENT",
+    ])
+
+
+class CarryOverTests(unittest.TestCase):
+    """NJPW's API drops a show the moment it has aired, so yesterday's calendar is the
+    only record of it. Shows from the last week are carried over from the previous
+    build's output until they roll off."""
+
+    TODAY = date(2026, 9, 11)
+
+    def setUp(self):
+        self.builder = load_builder()
+
+    def previous(self, *blocks):
+        return "BEGIN:VCALENDAR\r\n" + "\r\n".join(blocks) + "\r\nEND:VCALENDAR\r\n"
+
+    def test_a_show_that_aired_this_week_is_carried_over_verbatim(self):
+        block = vevent("njpw-656886@njpw-stardom-cal", date(2026, 9, 9))
+        kept = self.builder.carry_over(self.previous(block), set(), self.TODAY)
+        self.assertEqual([block], kept)
+
+    def test_a_show_older_than_the_retention_window_rolls_off(self):
+        block = vevent("njpw-1@njpw-stardom-cal", self.TODAY - __import__("datetime").timedelta(days=8))
+        self.assertEqual([], self.builder.carry_over(self.previous(block), set(), self.TODAY))
+
+    def test_a_show_the_fresh_fetch_still_lists_is_not_duplicated(self):
+        block = vevent("njpw-1@njpw-stardom-cal", date(2026, 9, 9))
+        kept = self.builder.carry_over(self.previous(block), {"njpw-1@njpw-stardom-cal"}, self.TODAY)
+        self.assertEqual([], kept)
+
+    def test_a_future_show_missing_from_the_fetch_is_dropped_as_cancelled(self):
+        block = vevent("njpw-1@njpw-stardom-cal", date(2026, 9, 12))
+        self.assertEqual([], self.builder.carry_over(self.previous(block), set(), self.TODAY))
+
+    def test_emit_appends_carried_blocks_after_the_fresh_events(self):
+        block = vevent("njpw-old@njpw-stardom-cal", date(2026, 9, 9))
+        fresh = self.builder.Event(uid="njpw-new@test", summary="New", location="", desc="",
+                                   date=date(2026, 9, 13))
+        out = self.builder.emit([fresh], "20260101T000000Z", carried=[block])
+        self.assertIn(block, out)
+        self.assertLess(out.index("UID:njpw-new@test"), out.index("UID:njpw-old@"))
+        self.assertTrue(out.endswith("END:VEVENT\r\nEND:VCALENDAR\r\n"))
+
+
 class FixedDatetime:
     @classmethod
     def now(cls, tz=None):

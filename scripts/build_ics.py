@@ -42,6 +42,9 @@ GCAL_ICS = ("https://calendar.google.com/calendar/ical/"
             "n6l35ni6rcbffi1m4m5g5ocnh4%40group.calendar.google.com/public/basic.ics")
 UA = "Mozilla/5.0 (compatible; njpw-stardom-cal/1.0; +https://github.com/)"
 GCAL_WINDOW_DAYS = 60  # how far ahead to trust/borrow from the Google mirror
+# NJPW's API drops a show the moment it has aired; keep it on the calendar this long by
+# carrying it over from the previous build's output.
+RETAIN_DAYS = 7
 
 JST = timezone(timedelta(hours=9))
 
@@ -555,7 +558,23 @@ END:STANDARD
 END:VTIMEZONE""".replace("\n", "\r\n")
 
 
-def emit(events, stamp):
+def carry_over(previous_ics, fresh_uids, today):
+    """VEVENT blocks (verbatim) from the previous build for shows that aired in the last
+    RETAIN_DAYS and are no longer in the fresh fetch. Future shows are not carried: the
+    source dropping one of those means it was cancelled or moved."""
+    kept = []
+    for block in re.findall(r"BEGIN:VEVENT.*?END:VEVENT", previous_ics, re.S):
+        muid = re.search(r"\r\nUID:(.*?)\r\n", block)
+        mds = re.search(r"\r\nDTSTART[^:]*:(\d{8})", block)
+        if not (muid and mds) or muid.group(1) in fresh_uids:
+            continue
+        day = datetime.strptime(mds.group(1), "%Y%m%d").date()
+        if today - timedelta(days=RETAIN_DAYS) <= day < today:
+            kept.append(block)
+    return kept
+
+
+def emit(events, stamp, carried=()):
     lines = [
         "BEGIN:VCALENDAR", "VERSION:2.0",
         "PRODID:-//njpw-stardom-cal//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
@@ -584,6 +603,7 @@ def emit(events, stamp):
             ev.append("DESCRIPTION:" + esc(e.desc))
         ev.append("END:VEVENT")
         body.append("\r\n".join(fold(x) for x in ev))
+    body.extend(carried)
     head = "\r\n".join(fold(x) for x in lines)
     lines_out = head + "\r\n" + "\r\n".join(body) + "\r\nEND:VCALENDAR\r\n"
     return lines_out
@@ -606,9 +626,14 @@ def main():
     if len(events) < 10:
         print("Refusing to write: implausibly few events (source failure?)", file=sys.stderr)
         sys.exit(1)
+    carried = []
+    if OUT.exists():
+        carried = carry_over(OUT.read_bytes().decode("utf-8"), {e.uid for e in events},
+                             datetime.now(JST).date())
+    print(f"Carried over from previous build: {len(carried)} aired shows")
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_bytes(emit(events, stamp).encode("utf-8"))
-    print(f"Wrote {OUT} with {len(events)} events.")
+    OUT.write_bytes(emit(events, stamp, carried).encode("utf-8"))
+    print(f"Wrote {OUT} with {len(events) + len(carried)} events.")
 
 
 if __name__ == "__main__":
