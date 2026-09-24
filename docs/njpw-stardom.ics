@@ -953,14 +953,4 @@ SUMMARY:NJPW — Pro-Wrestling TAKE OFF! from New Chitose Airport · Hokk
 LOCATION:New Chitose Airport Center Plaza\, Hokkaido
 DESCRIPTION:Bell 18:30 JST (NJPW official). Doors 17:45.
 END:VEVENT
-BEGIN:VEVENT
-UID:njpw-657037@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20260917T183000
-DTEND;TZID=Asia/Tokyo:20260917T213000
-SUMMARY:NJPW — NJPW BATTLE LINE HOKKAIDO ～Road to DESTRUCTION～ · H
- okkaido
-LOCATION:Recruit Staffing RICK&SUE Asahikawa Gymnasium\, Hokkaido
-DESCRIPTION:Bell 18:30 JST (NJPW official). Doors 17:30.
-END:VEVENT
 END:VCALENDAR
