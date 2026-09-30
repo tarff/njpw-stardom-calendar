@@ -408,6 +408,7 @@ class StardomGridTests(unittest.TestCase):
             return STARDOM_GRID if "ym=" in url and url.endswith("09") else "<html></html>"
 
         self.builder.fetch = _fetch
+        self.builder.datetime = FixedStardomDatetime
         self.builder.STARDOM_DETAIL_LOOKAHEAD = -1  # no detail fetches in this test
 
         out = self.builder.scrape_stardom()
