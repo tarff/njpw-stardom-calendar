@@ -295,15 +295,6 @@ LOCATION:Shizuoka
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-662773@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261009T190000
-DTEND;TZID=Asia/Tokyo:20261009T220000
-SUMMARY:NJPW — Road to KING OF PRO-WRESTLING 2026 · Ishikawa
-LOCATION:Komatsu General Gymnasium（Suehiro Arena）\, Ishikawa
-DESCRIPTION:Bell 19:00 JST (NJPW official). Doors 18:00.
-END:VEVENT
-BEGIN:VEVENT
 UID:stardom-2026-10-10@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20261010T130000
@@ -878,6 +869,15 @@ DTEND;VALUE=DATE:20270122
 SUMMARY:Stardom — Korakuen Hall (Evening) Tokyo\, Korakuen Hall
 LOCATION:Korakuen Hall\, Tokyo
 DESCRIPTION:Bell time not yet announced.
+END:VEVENT
+BEGIN:VEVENT
+UID:njpw-662773@njpw-stardom-cal
+DTSTAMP:20260101T000000Z
+DTSTART;TZID=Asia/Tokyo:20261009T190000
+DTEND;TZID=Asia/Tokyo:20261009T220000
+SUMMARY:NJPW — Road to KING OF PRO-WRESTLING 2026 · Ishikawa
+LOCATION:Komatsu General Gymnasium（Suehiro Arena）\, Ishikawa
+DESCRIPTION:Bell 19:00 JST (NJPW official). Doors 18:00.
 END:VEVENT
 BEGIN:VEVENT
 UID:njpw-654878@njpw-stardom-cal
