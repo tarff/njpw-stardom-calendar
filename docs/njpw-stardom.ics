@@ -322,16 +322,6 @@ LOCATION:Kofu
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-669559@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261017T150000
-DTEND;TZID=Asia/Tokyo:20261017T180000
-SUMMARY:NJPW — Taichi's School Pro-Wrestling 2 · Hokkaido
-LOCATION:Hanakawa Minami Junior High School Gymnasium\, Ishikari City\, H
- okkaido\, Hokkaido
-DESCRIPTION:Bell 15:00 JST (NJPW official). Doors 14:00.
-END:VEVENT
-BEGIN:VEVENT
 UID:stardom-2026-10-18@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20261018T150000
@@ -864,6 +854,16 @@ LOCATION:Takadanobaba
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
+UID:njpw-669559@njpw-stardom-cal
+DTSTAMP:20260101T000000Z
+DTSTART;TZID=Asia/Tokyo:20261017T150000
+DTEND;TZID=Asia/Tokyo:20261017T180000
+SUMMARY:NJPW — Taichi's School Pro-Wrestling 2 · Hokkaido
+LOCATION:Hanakawa Minami Junior High School Gymnasium\, Ishikari City\, H
+ okkaido\, Hokkaido
+DESCRIPTION:Bell 15:00 JST (NJPW official). Doors 14:00.
+END:VEVENT
+BEGIN:VEVENT
 UID:njpw-662775@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20261012T160000
@@ -871,14 +871,5 @@ DTEND;TZID=Asia/Tokyo:20261012T190000
 SUMMARY:NJPW — KING OF PRO-WRESTLING 2026 · Tokyo
 LOCATION:Ryogoku Sumo Hall\, Tokyo
 DESCRIPTION:Bell 16:00 JST (NJPW official). Doors 14:30.
-END:VEVENT
-BEGIN:VEVENT
-UID:njpw-662774@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261010T150000
-DTEND;TZID=Asia/Tokyo:20261010T180000
-SUMMARY:NJPW — Road to KING OF PRO-WRESTLING 2026 · Niigata
-LOCATION:Uonuma City Horinouchi Gymnasium\, Niigata
-DESCRIPTION:Bell 15:00 JST (NJPW official). Doors 14:00.
 END:VEVENT
 END:VCALENDAR
