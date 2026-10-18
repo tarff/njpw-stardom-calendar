@@ -324,11 +324,11 @@ END:VEVENT
 BEGIN:VEVENT
 UID:stardom-2026-10-18@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261018T150000
-DTEND;TZID=Asia/Tokyo:20261018T180000
-SUMMARY:Stardom Path of Thunder 2026
-LOCATION:Light Cube Utsunomiya
-DESCRIPTION:Bell 15:00 JST.
+DTSTART;VALUE=DATE:20261018
+DTEND;VALUE=DATE:20261019
+SUMMARY:Stardom Path of Thunder 2026 Light Cube Utsunomiya
+LOCATION:Utsunomiya
+DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
 UID:stardom-2026-10-20@njpw-stardom-cal
@@ -610,13 +610,13 @@ END:VEVENT
 BEGIN:VEVENT
 UID:stardom-2026-11-28@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
-DTSTART;VALUE=DATE:20261128
-DTEND;VALUE=DATE:20261129
+DTSTART;TZID=Asia/Tokyo:20261128T130000
+DTEND;TZID=Asia/Tokyo:20261128T160000
 SUMMARY:Stardom — The 16th Goddess of Stardom Tag Team League Tournamen
  t in OKAZAKI\, commemorating the 80th anniversary of the Okazaki City Sp
  orts Association
 LOCATION:Aichi Prefecture\, Okazaki City Gymnasium
-DESCRIPTION:Bell time not yet announced.
+DESCRIPTION:Bell 13:00 JST.
 END:VEVENT
 BEGIN:VEVENT
 UID:njpw-669686@njpw-stardom-cal
