@@ -340,16 +340,6 @@ LOCATION:Kourakuen
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-662776@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261024T170000
-DTEND;TZID=Asia/Tokyo:20261024T200000
-SUMMARY:NJPW — SUPER Jr. TAG LEAGUE 2026 ～Road to POWER STRUGGLE～ 
- · Saitama
-LOCATION:Kumagaya Citizen gymnasium\, Saitama
-DESCRIPTION:Bell 17:00 JST (NJPW official). Doors 16:00.
-END:VEVENT
-BEGIN:VEVENT
 UID:njpw-654879@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20261025T183000
@@ -903,13 +893,13 @@ LOCATION:Korakuen Hall\, Tokyo
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-669559@njpw-stardom-cal
+UID:njpw-662776@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261017T150000
-DTEND;TZID=Asia/Tokyo:20261017T180000
-SUMMARY:NJPW — Taichi's School Pro-Wrestling 2 · Hokkaido
-LOCATION:Hanakawa Minami Junior High School Gymnasium\, Ishikari City\, H
- okkaido\, Hokkaido
-DESCRIPTION:Bell 15:00 JST (NJPW official). Doors 14:00.
+DTSTART;TZID=Asia/Tokyo:20261024T170000
+DTEND;TZID=Asia/Tokyo:20261024T200000
+SUMMARY:NJPW — SUPER Jr. TAG LEAGUE 2026 ～Road to POWER STRUGGLE～ 
+ · Saitama
+LOCATION:Kumagaya Citizen gymnasium\, Saitama
+DESCRIPTION:Bell 17:00 JST (NJPW official). Doors 16:00.
 END:VEVENT
 END:VCALENDAR
