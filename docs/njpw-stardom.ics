@@ -250,14 +250,6 @@ LOCATION:Ryogoku Kokugikan (Sumo Hall)\, Tokyo
 DESCRIPTION:Bell time not yet announced.
 END:VEVENT
 BEGIN:VEVENT
-UID:njpw-gcal-1ais0vmdplcjrkosinvh8t2b0i@google.com
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261109T190000
-DTEND;TZID=Asia/Tokyo:20261109T220000
-SUMMARY:NJPW — 【PPV】”ガス”PE invitational
-DESCRIPTION:Source: njpwworld Schedule (near-term).
-END:VEVENT
-BEGIN:VEVENT
 UID:njpw-660980@njpw-stardom-cal
 DTSTAMP:20260101T000000Z
 DTSTART;TZID=Asia/Tokyo:20261116T170000
@@ -452,6 +444,14 @@ DTEND;TZID=Asia/Tokyo:20270104T193000
 SUMMARY:NJPW — WRESTLE KINGDOM 21 in Tokyo Dome · Tokyo
 LOCATION:Tokyo Dome\, Tokyo
 DESCRIPTION:Bell 16:30 JST (NJPW official). Doors 14:30.
+END:VEVENT
+BEGIN:VEVENT
+UID:njpw-gcal-1ais0vmdplcjrkosinvh8t2b0i@google.com
+DTSTAMP:20260101T000000Z
+DTSTART;TZID=Asia/Tokyo:20261109T190000
+DTEND;TZID=Asia/Tokyo:20261109T220000
+SUMMARY:NJPW — 【PPV】”ガス”PE invitational
+DESCRIPTION:Source: njpwworld Schedule (near-term).
 END:VEVENT
 BEGIN:VEVENT
 UID:stardom-2026-11-03@njpw-stardom-cal
