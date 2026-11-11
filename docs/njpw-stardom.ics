@@ -453,24 +453,4 @@ DTEND;TZID=Asia/Tokyo:20261109T220000
 SUMMARY:NJPW — 【PPV】”ガス”PE invitational
 DESCRIPTION:Source: njpwworld Schedule (near-term).
 END:VEVENT
-BEGIN:VEVENT
-UID:stardom-2026-11-03@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;VALUE=DATE:20261103
-DTEND;VALUE=DATE:20261104
-SUMMARY:Stardom — The 16th Goddesses of Stardom Tag League Tournament i
- n NUMAZU\, Shizuoka - Kiramesse Numazu\, Multipurpose Hall 1
-LOCATION:Numazu
-DESCRIPTION:Bell time not yet announced.
-END:VEVENT
-BEGIN:VEVENT
-UID:njpw-662785@njpw-stardom-cal
-DTSTAMP:20260101T000000Z
-DTSTART;TZID=Asia/Tokyo:20261103T160000
-DTEND;TZID=Asia/Tokyo:20261103T190000
-SUMMARY:NJPW — POWER STRUGGLE ～SUPER Jr. TAG LEAGUE 2026～ · Hirosh
- ima
-LOCATION:Hiroshima Sun Plaza Hall\, Hiroshima
-DESCRIPTION:Bell 16:00 JST (NJPW official). Doors 14:30.
-END:VEVENT
 END:VCALENDAR
